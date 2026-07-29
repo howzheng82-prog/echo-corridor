@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Echo Corridor</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{overflow:hidden;touch-action:none;background:#000}
+canvas{display:block;width:100vw;height:100vh}
+
+/* 镜子交互按钮 */
+#mirrorEnterBtn{
+    display:none;
+    position:fixed;
+    top:42%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    padding:16px 32px;
+    background:rgba(0,0,0,0.65);
+    color:#ffffff;
+    border:1px solid rgba(255,255,255,0.3);
+    border-radius:14px;
+    font-size:18px;
+    z-index:999;
+    opacity:0;
+    transition:opacity 0.3s ease;
+}
+#mirrorEnterBtn.show{
+    display:block;
+    opacity:1;
+}
+
+/* 离开镜中世界按钮 */
+#exitMirrorBtn{
+    display:none;
+    position:fixed;
+    top:24px;
+    right:24px;
+    padding:12px 22px;
+    background:rgba(120,20,40,0.6);
+    color:#fff;
+    border-radius:12px;
+    font-size:16px;
+    z-index:999;
+    opacity:0;
+    transition:opacity 0.3s ease;
+}
+#exitMirrorBtn.show{
+    display:block;
+    opacity:1;
+}
+
+/* 左下角虚拟摇杆容器 */
+#joystickBox{
+    position:fixed;
+    left:24px;
+    bottom:24px;
+    width:124px;
+    height:124px;
+    background:rgba(255,255,255,0.15);
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,0.25);
+    touch-action:none;
+    z-index:998;
+}
+/* 摇杆圆点 */
+#joystickDot{
+    width:44px;
+    height:44px;
+    background:rgba(255,255,255,0.65);
+    border-radius:50%;
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+}
+</style>
+</head>
+<body>
+<!-- UI界面 -->
+<div id="mirrorEnterBtn">点击进入镜中世界</div>
+<div id="exitMirrorBtn">离开镜中世界</div>
+<div id="joystickBox">
+    <div id="joystickDot"></div>
+</div>
+
+<!-- Three.js 在线库 -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/PointerLockControls.js"></script>
+<script>
+// ========= UI元素获取 =========
+const mirrorEnterBtn = document.getElementById('mirrorEnterBtn');
+const exitMirrorBtn = document.getElementById('exitMirrorBtn');
+const joystickBox = document.getElementById('joystickBox');
+const joystickDot = document.getElementById('joystickDot');
+
+// ========= 全局游戏状态 =========
+let inMirrorScene = false; // 是否处于镜中世界
+let nearMirrorRange = false; // 是否靠近镜子
+const mirrorDistanceTrigger = 3.8; // 多近显示按钮
+
+// 摇杆数据
+let stickVector = {x:0, y:0};
+const stickMaxRadius = joystickBox.offsetWidth / 2 - 22;
+
+// ========= 摇杆逻辑 =========
+function updateJoystick(clientX, clientY){
+    const rect = joystickBox.getBoundingClientRect();
+    let x = clientX - rect.left - rect.width/2;
+    let y = clientY - rect.top - rect.height/2;
+    const length = Math.hypot(x,y);
+    if(length > stickMaxRadius){
+        x = x / length * stickMaxRadius;
+        y = y / length * stickMaxRadius;
+    }
+    joystickDot.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+    stickVector.x = x / stickMaxRadius;
+    stickVector.y = y / stickMaxRadius;
+}
+function resetJoystick(){
+    joystickDot.style.transform = "translate(-50%,-50%)";
+    stickVector.x = 0;
+    stickVector.y = 0;
+}
+joystickBox.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    updateJoystick(e.touches[0].clientX, e.touches[0].clientY);
+})
+joystickBox.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    updateJoystick(e.touches[0].clientX, e.touches[0].clientY);
+})
+joystickBox.addEventListener('touchend',resetJoystick);
+joystickBox.addEventListener('touchcancel',resetJoystick);
+
+// ========= 场景初始化 基础3D环境 =========
+let scene, camera, renderer, player;
+let mirrorMesh; // 镜子模型
+
+function initGame(){
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111118);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // 玩家初始位置
+    player = new THREE.Object3D();
+    player.position.set(0,1.6,6);
+    scene.add(player);
+    camera.position.copy(player.position);
+
+    // 灯光
+    const light = new THREE.PointLight(0xffffff,0.6);
+    light.position.set(0,4,0);
+    scene.add(light);
+
+    // 地面
+    const groundGeo = new THREE.PlaneGeometry(30,30);
+    const groundMat = new THREE.MeshStandardMaterial({color:0x222228});
+    const ground = new THREE.Mesh(groundGeo,groundMat);
+    ground.rotation.x = -Math.PI/2;
+    scene.add(ground);
+
+    // 创建镜子
+    const mirrorGeo = new THREE.PlaneGeometry(2.2,3.2);
+    const mirrorMat = new THREE.MeshStandardMaterial({color:0x99ccff,metalness:0.8});
+    mirrorMesh = new THREE.Mesh(mirrorGeo, mirrorMat);
+    mirrorMesh.position.set(0,1.6,-8);
+    scene.add(mirrorMesh);
+
+    window.addEventListener('resize',()=>{
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updat
