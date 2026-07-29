@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Echo Corridor 回声影廊</title>
+    <link rel="stylesheet" href="./css/main.css">
+</head>
+<body>
+    <div id="app">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- UI界面元素 -->
+        <div class="tip-text" id="startTip">建议横向握持手机，以获得最佳游玩体验</div>
+        <button id="mirrorEnterBtn">点击进入镜中世界</button>
+        <button id="exitMirrorBtn">离开镜中世界</button>
+
+        <!-- 移动端摇杆 -->
+        <div id="joystickBox">
+            <div id="joystickDot"></div>
+        </div>
+        <!-- 视角滑动区域 -->
+        <div id="touchViewArea"></div>
+    </div>
+
+    <!-- 模块入口 -->
+    <script type="module">
+        import { Game } from "./src/main.js";
+        window.addEventListener("load", () => {
+            new Game();
+        });
+    </script>
+</body>
+</html>
