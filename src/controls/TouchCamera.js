@@ -12,11 +12,11 @@ export class TouchCamera{
     bindTouch(){
         this.viewArea.addEventListener("touchstart", e=>{
             this.lastX = e.touches[0].clientX;
-        })
+        });
         this.viewArea.addEventListener("touchmove", e=>{
             const dx = e.touches[0].clientX - this.lastX;
             this.yaw += dx * this.speed;
             this.lastX = e.touches[0].clientX;
-        })
+        });
     }
 }
