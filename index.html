@@ -24,4 +24,9 @@
     </div>
 
     <!-- 模块入口 -->
-    <script type="module" src="./src/main.js"></script>
+<script type="module">
+import { Game } from "./src/main.js";
+window.addEventListener("load", () => {
+    new Game();
+});
+</script>
